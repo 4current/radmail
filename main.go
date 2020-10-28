@@ -24,21 +24,31 @@ func waitForCtrlC() {
 	endWaiter.Wait()
 }
 
+type myOut interface {
+	Print()
+}
+
 type beacon struct {
-	every       int    `json:"every"`
-	message     string `json:"message"`
-	destination string `json:"destination"`
+	Every       int    `json:"every"`
+	Message     string `json:"message"`
+	Destination string `json:"destination"`
 }
 
 type ax25 struct {
-	port   int    `json:"port"`
-	beacon int    `json:"beacon"`
-	rig    string `json:"rig"`
+	Port   int    `json:"port"`
+	Beacon int    `json:"beacon"`
+	Rig    string `json:"rig"`
 }
 
 type hamlibRig struct {
 	Address string `json:"address"`
 	Network string `json:"network"`
+}
+
+func (h *hamlibRig) Print() {
+	fmt.Println("HamlibRig:")
+	fmt.Println("  Address:             ", h.Address)
+	fmt.Println("  Network:       ", h.Network)
 }
 
 type serialTNC struct {
@@ -54,6 +64,16 @@ type winmor struct {
 	Rig              string `json:"rig"`
 	PttCtrl          bool   `json:"ptt_ctrl"`
 }
+
+func (w *winmor) Print() {
+	fmt.Println("WINMOR:")
+	fmt.Println("  Addr:             ", w.Addr)
+	fmt.Println("  DriveLevel:       ", w.DriveLevel)
+	fmt.Println("  InboundBandwidth: ", w.InboundBandwidth)
+	fmt.Println("  PttCtrl:          ", w.PttCtrl)
+	fmt.Println("  Rig               ", w.Rig)
+}
+
 type pactor struct {
 	Path             string `json:"path"`
 	BaudRate         int    `json:"baud_rate"`
@@ -95,8 +115,6 @@ type config struct {
 	VersionReportingDisabled bool                 `json:"version_reporting_disabled"`
 }
 
-var myCfg config
-
 func showIt(x map[string]interface{}) {
 	for k, v := range x {
 		switch reflect.TypeOf(v).Kind() {
@@ -118,6 +136,33 @@ func showIt(x map[string]interface{}) {
 
 func main() {
 
+	type clist struct {
+		Acountry string `json:"a"`
+		Bcountry string `json:"b"`
+	}
+
+	type whatis map[string]clist
+
+	var q whatis
+
+	v2 := viper.New()
+	v2.SetConfigName("viper_test_cfg")
+	v2.SetConfigType("json")
+	v2.AddConfigPath("$HOME/go/src/github.com/4current/radmail")
+	err2 := v2.ReadInConfig()
+	if err2 != nil {
+		panic(err2)
+	}
+	err3 := v2.Unmarshal(&q)
+	if err3 != nil {
+		panic(err3)
+	}
+	fmt.Printf("%v\n", q)
+	fmt.Println(q["countries"].Acountry)
+
+	var myCfg config
+	myCfg.HamlibRigs = make(map[string]hamlibRig, 2)
+
 	v := viper.New()
 	cfgDir := "$HOME/Dropbox/ham/Winlink/pat_mail/.wl2k"
 	v.SetConfigName("config")
@@ -131,24 +176,11 @@ func main() {
 		fmt.Println("A File Event happened: ", e.Name, e.Op)
 	})
 	v.WatchConfig()
+	v.Unmarshal(&myCfg)
 
-	var settings map[string]interface{}
-	settings = v.AllSettings()
-	viper.Unmarshal(&settings)
-	showIt(settings)
-
-	var serialTNCSettings map[string]string
-	serialTNCSettings = v.GetStringMapString("serial-tnc")
-	viper.Unmarshal(&serialTNCSettings)
-	fmt.Println("serial-tnc")
-	for k, v := range serialTNCSettings {
-		fmt.Println("  ", k, "   ", v)
-	}
-
-	myCfg.myCall = v.GetString("mycall")
-	myCfg.formsPath = v.GetString("forms_path")
-
-	fmt.Println(myCfg)
+	myCfg.WINMOR.Print()
+	fmt.Println(myCfg.HamlibRigs["myrig"])
+	fmt.Printf("Version Reportind Disabled: %v\n", myCfg.VersionReportingDisabled)
 
 	fmt.Printf("Press Ctrl+C to end\n")
 	waitForCtrlC()
